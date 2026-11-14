@@ -765,7 +765,7 @@ function viewPoll(p) {
       <div class="voters">${people}</div>
       ${amIn && open ? `<div class="myvote"><span class="muted small">Votre réponse${myConf.length ? ` <span class="warn-inline">⚠ ${esc(myConf.join(', '))}</span>` : ''}</span>
         <div class="seg">${Object.entries(VOTE).map(([k, [label]]) => `<button class="${k} ${mine === k ? 'on' : ''}" data-act="vote" data-opt="${o.id}" data-val="${k}">${label}</button>`).join('')}</div></div>` : ''}
-      ${open ? `<button class="btn small ghost validate" data-act="choose" data-opt="${o.id}">Retenir cette date</button>` : ''}
+      ${open ? `<button class="btn small ${best ? 'primary' : ''} validate" data-act="choose" data-opt="${o.id}">✓ Retenir cette date</button>` : ''}
     </li>`;
   });
   return `<section class="card">
@@ -1063,14 +1063,25 @@ function gate(inner) {
 const pendingInvite = () => ls.get(LS.invite, null);
 
 /** Écran de connexion : aucun accès sans compte Google ou Microsoft. */
+/** Navigateur intégré à une application (WhatsApp, Messenger, Instagram, Gmail…) : la connexion y échoue souvent. */
+const inAppBrowser = () => /FBAN|FBAV|FB_IAB|Instagram|Messenger|WhatsApp|Snapchat|LinkedInApp|Line\/|GSA\/|; wv\)/i.test(navigator.userAgent);
+
 function loginScreen() {
   const inv = pendingInvite();
+  const link = inv ? `${baseUrl()}#/agenda?f=${encodeURIComponent(inv.f)}&i=${encodeURIComponent(inv.i)}&m=${encodeURIComponent(inv.m)}` : baseUrl();
+  const inApp = inAppBrowser();
   gate(`<p>${inv ? 'Vous avez reçu une invitation. Connectez-vous avec <b>votre</b> compte pour rejoindre l’agenda familial.' : 'Connectez-vous pour accéder à l’agenda familial.'}</p>
+    ${inApp ? `<div class="warn"><b>Ouvrez cette page dans Chrome ou Safari.</b> Vous êtes dans le navigateur intégré d’une application (WhatsApp, Messenger…), où la connexion échoue souvent. Utilisez le menu <b>⋮</b> ou <b>…</b> › « Ouvrir dans le navigateur », ou copiez le lien ci-dessous.</div>` : ''}
     <div class="btn-col">
       <button class="btn" data-gate="google"><b class="g">G</b> Continuer avec Google</button>
       <button class="btn" data-gate="microsoft"><b class="ms">▦</b> Continuer avec Microsoft</button>
     </div>
-    <p class="muted small">Votre compte sert uniquement à vous identifier. L’accès à l’agenda de vos proches est réservé aux comptes invités.</p>`);
+    <p class="muted small">Votre compte sert uniquement à vous identifier. L’accès à l’agenda de vos proches est réservé aux comptes invités.</p>
+    <details class="help"${inApp ? ' open' : ''}><summary>Problème de connexion (« missing initial state ») ?</summary>
+      <p class="small">Copiez ce lien, puis collez-le dans <b>Chrome</b> (Android) ou <b>Safari</b> (iPhone), hors navigation privée.${inv ? ' L’invitation reste valable tant que la connexion n’a pas réussi.' : ''}</p>
+      <button class="btn small" data-copy>Copier le lien</button>
+    </details>`);
+  app.querySelector('[data-copy]').onclick = () => copy(link, 'Lien copié : collez-le dans Chrome ou Safari');
   for (const b of app.querySelectorAll('[data-gate]'))
     b.onclick = async () => {
       b.disabled = true;
@@ -1091,6 +1102,8 @@ function authError(e) {
       'auth/operation-not-allowed': 'Ce mode de connexion n’est pas activé dans Firebase (Authentication › Sign-in method).',
       'auth/account-exists-with-different-credential': 'Cette adresse est déjà utilisée avec l’autre fournisseur : connectez-vous avec celui-ci.',
       'auth/popup-blocked': 'Le navigateur a bloqué la fenêtre de connexion : autorisez les pop-ups pour ce site.',
+      'auth/web-storage-unsupported': 'Ce navigateur bloque la connexion (stockage désactivé ou navigation privée) : ouvrez le lien dans Chrome ou Safari.',
+      'auth/internal-error': 'Connexion impossible dans ce navigateur : ouvrez le lien dans Chrome ou Safari, hors navigation privée.',
     }[e.code] || e.message
   );
 }
