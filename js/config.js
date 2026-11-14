@@ -9,8 +9,8 @@ export const CONFIG = {
 
   // Google Agenda : ID client OAuth de type « Application Web »
   // ex. '1234567890-abc.apps.googleusercontent.com'
-  google: {
-    clientId: '',
+   google: {
+    clientId: '622799626716-7jj86ak62rvu9ofqv62l71b7gjep5ijc.apps.googleusercontent.com',
   },
 
   // Outlook / Microsoft 365 : ID d'application (client) Entra ID, plateforme « SPA »
