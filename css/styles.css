@@ -275,6 +275,7 @@ dialog::backdrop { background: rgb(0 0 0 / 0.45); }
 .btn-col .btn { justify-content: flex-start; padding: 0.75rem 1rem; }
 .btn-col .g { color: #4285f4; font-weight: 800; width: 1.2rem; }
 .btn-col .ms { color: #00a4ef; width: 1.2rem; }
+.gsi-btn { min-height: 44px; display: flex; align-items: center; color-scheme: light; }
 .help { margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 0.75rem; }
 .help summary { cursor: pointer; font-size: 0.9rem; color: var(--muted); }
 .help p { margin: 0.5rem 0; }
