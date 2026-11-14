@@ -1176,7 +1176,10 @@ async function startCloud() {
 
   store = await createCloudStore(ctx, familyId, {
     admin: access.role === 'admin',
-    onDenied: () => deniedScreen('Votre accès à cet agenda familial a été retiré.'),
+    onDenied: () => {
+      store = null; // stoppe l'affichage des données
+      deniedScreen('Votre accès à cet agenda familial a été retiré.');
+    },
   });
   return true;
 }

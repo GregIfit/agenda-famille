@@ -19,9 +19,10 @@ export const CONFIG = {
     authority: 'https://login.microsoftonline.com/common',
   },
 
-  // Partage entre les membres de la famille (Firebase Firestore).
-  // Laissez null pour un mode « local » (données dans ce navigateur uniquement).
+  // Partage sécurisé entre les membres de la famille (Firebase : connexion + Firestore).
+  // Laissez null pour un mode « local » (données dans ce navigateur uniquement, sans connexion).
   // ex. { apiKey: '...', authDomain: '...', projectId: '...', appId: '...' }
+  // N'oubliez pas de publier les règles de firestore.rules (voir README).
   firebase: null,
 
   // Proxy CORS optionnel pour lire les liens iCal (.ics) qui bloquent la lecture

@@ -1,0 +1,94 @@
+rules_version = '2';
+
+// Règles de sécurité de l'Agenda Famille
+// À coller dans Firebase › Firestore Database › Règles, puis « Publier ».
+//
+// Principe : seuls les comptes (Google ou Microsoft) qui ont un document
+// families/{f}/access/{uid} peuvent lire ou écrire les données de l'espace f.
+// Ce document ne peut être créé que :
+//   - par le propriétaire de l'espace (à la création), ou
+//   - avec une invitation valide, qui est consommée dans la même opération (usage unique).
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /families/{f} {
+      function d(c, id) { return /databases/$(database)/documents/families/$(f)/$(c)/$(id); }
+      function signedIn() { return request.auth != null; }
+      function isMember() { return signedIn() && exists(d('access', request.auth.uid)); }
+      function me() { return get(d('access', request.auth.uid)).data; }
+      function isAdmin() { return isMember() && me().role == 'admin'; }
+
+      // Document de l'espace : créé une seule fois par son propriétaire, jamais modifié
+      allow get: if isMember();
+      allow create: if signedIn()
+        && f.size() >= 32
+        && request.resource.data.owner == request.auth.uid
+        && request.resource.data.keys().hasOnly(['owner', 'name', 'createdAt']);
+
+      // Comptes autorisés
+      match /access/{uid} {
+        allow get: if signedIn() && (request.auth.uid == uid || isMember());
+        allow list: if isMember();
+
+        allow create: if signedIn()
+          && uid == request.auth.uid
+          && request.resource.data.uid == uid
+          && request.resource.data.email == request.auth.token.get('email', '')
+          && (
+            // 1) le propriétaire s'inscrit comme administrateur
+            (get(/databases/$(database)/documents/families/$(f)).data.owner == uid
+              && request.resource.data.role == 'admin')
+            ||
+            // 2) un invité utilise une invitation valide, supprimée dans la même opération
+            (request.resource.data.role == 'member'
+              && exists(d('invites', request.resource.data.invite))
+              && get(d('invites', request.resource.data.invite)).data.expiresAt > request.time
+              && get(d('invites', request.resource.data.invite)).data.memberId == request.resource.data.memberId
+              && !existsAfter(d('invites', request.resource.data.invite)))
+          );
+
+        // Seuls les administrateurs changent les rôles ou retirent un accès (pas le leur)
+        allow update: if isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'memberId']);
+        allow delete: if isAdmin() && uid != request.auth.uid;
+      }
+
+      // Invitations : visibles et gérées par les administrateurs uniquement
+      match /invites/{id} {
+        allow read: if isAdmin();
+        allow create: if isAdmin()
+          && request.resource.data.expiresAt is timestamp
+          && request.resource.data.memberId is string;
+        allow delete: if isAdmin()
+          || (signedIn() && getAfter(d('access', request.auth.uid)).data.get('invite', '') == id);
+      }
+
+      // Profils des membres (prénom, couleur)
+      match /members/{id} {
+        allow read, create, update: if isMember();
+        allow delete: if isAdmin();
+      }
+
+      // Événements familiaux
+      match /events/{id} {
+        allow read, write: if isMember();
+      }
+
+      // Sondages : chacun ne peut modifier que SES propres réponses
+      match /polls/{id} {
+        allow read, create, delete: if isMember();
+        allow update: if isMember() && (
+          !('votes' in request.resource.data.diff(resource.data).affectedKeys())
+          || request.resource.data.votes.diff(resource.data.votes).affectedKeys().hasOnly([me().memberId])
+        );
+      }
+
+      // Créneaux occupés : chacun ne publie que les siens
+      match /busy/{id} {
+        allow read: if isMember();
+        allow write: if isMember() && (id == me().memberId || isAdmin());
+      }
+    }
+  }
+}

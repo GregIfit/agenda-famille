@@ -12,13 +12,19 @@ export async function initCloud(fbConfig) {
     import(BASE + 'firebase-firestore.js'),
     import(BASE + 'firebase-auth.js'),
   ]);
-  const app = appMod.initializeApp(fbConfig);
+  const { emulators, ...options } = fbConfig;
+  const app = appMod.initializeApp(options);
   const auth = authMod.getAuth(app);
   let db;
   try {
-    db = fs.initializeFirestore(app, { localCache: fs.persistentLocalCache() });
+    db = fs.initializeFirestore(app, { localCache: emulators ? fs.memoryLocalCache() : fs.persistentLocalCache() });
   } catch {
     db = fs.getFirestore(app);
+  }
+  if (emulators) {
+    // Développement uniquement : Firebase local (firebase emulators:start)
+    authMod.connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+    fs.connectFirestoreEmulator(db, '127.0.0.1', 8085);
   }
   const user = await new Promise((resolve) => {
     const stop = authMod.onAuthStateChanged(auth, (u) => {
@@ -48,11 +54,17 @@ async function tokenEmail(ctx) {
 const ref = (ctx, ...path) => ctx.fs.doc(ctx.db, 'families', ...path);
 
 export async function getAccess(ctx, familyId) {
+  const r = ref(ctx, familyId, 'access', ctx.user.uid);
   try {
-    const s = await ctx.fs.getDocFromServer(ref(ctx, familyId, 'access', ctx.user.uid));
+    const s = await ctx.fs.getDocFromServer(r);
     return s.exists() ? s.data() : null;
   } catch (e) {
     if (e.code === 'permission-denied' || e.code === 'not-found') return null;
+    if (e.code === 'unavailable') {
+      // Hors ligne : on se fie au cache local (les règles s'appliqueront au retour du réseau)
+      const s = await ctx.fs.getDocFromCache(r).catch(() => null);
+      return s?.exists() ? s.data() : null;
+    }
     throw e;
   }
 }
