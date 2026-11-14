@@ -43,6 +43,16 @@ export async function signIn(ctx, provider) {
   return r.user;
 }
 
+/**
+ * Connexion à Firebase avec le jeton d'identité fourni par le bouton « Se connecter avec Google »
+ * (Google Identity Services). Contrairement à signInWithPopup, ce chemin ne passe pas par la page
+ * …firebaseapp.com/__/auth/handler, que Safari (iPhone) bloque quand le site est sur un autre domaine.
+ */
+export async function signInWithGoogleIdToken(ctx, idToken) {
+  const cred = ctx.authMod.GoogleAuthProvider.credential(idToken);
+  return (await ctx.authMod.signInWithCredential(ctx.auth, cred)).user;
+}
+
 export const signOut = (ctx) => ctx.authMod.signOut(ctx.auth);
 
 /** Adresse e-mail telle que les règles la voient (jeton d'identité). */
