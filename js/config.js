@@ -23,7 +23,14 @@ export const CONFIG = {
   // Laissez null pour un mode « local » (données dans ce navigateur uniquement, sans connexion).
   // ex. { apiKey: '...', authDomain: '...', projectId: '...', appId: '...' }
   // N'oubliez pas de publier les règles de firestore.rules (voir README).
-  firebase: null,
+  firebase: {
+  apiKey: "AIzaSyDpOUN0gLQs9iN9u2gJMW411HVkQm_BWcE",
+  authDomain: "agenda-famille-5101d.firebaseapp.com",
+  projectId: "agenda-famille-5101d",
+  storageBucket: "agenda-famille-5101d.firebasestorage.app",
+  messagingSenderId: "622799626716",
+  appId: "1:622799626716:web:1211618af4aba19b8d6f19"
+},
 
   // Proxy CORS optionnel pour lire les liens iCal (.ics) qui bloquent la lecture
   // depuis un navigateur. Le lien est ajouté encodé à la fin.
