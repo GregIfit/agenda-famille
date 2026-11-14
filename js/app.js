@@ -1073,7 +1073,7 @@ function loginScreen() {
   gate(`<p>${inv ? 'Vous avez reçu une invitation. Connectez-vous avec <b>votre</b> compte pour rejoindre l’agenda familial.' : 'Connectez-vous pour accéder à l’agenda familial.'}</p>
     ${inApp ? `<div class="warn"><b>Ouvrez cette page dans Chrome ou Safari.</b> Vous êtes dans le navigateur intégré d’une application (WhatsApp, Messenger…), où la connexion échoue souvent. Utilisez le menu <b>⋮</b> ou <b>…</b> › « Ouvrir dans le navigateur », ou copiez le lien ci-dessous.</div>` : ''}
     <div class="btn-col">
-      <button class="btn" data-gate="google"><b class="g">G</b> Continuer avec Google</button>
+      ${CONFIG.google.clientId ? `<div id="gsi-btn" class="gsi-btn"><span class="muted small">Chargement du bouton Google…</span></div>` : `<button class="btn" data-gate="google"><b class="g">G</b> Continuer avec Google</button>`}
       <button class="btn" data-gate="microsoft"><b class="ms">▦</b> Continuer avec Microsoft</button>
     </div>
     <p class="muted small">Votre compte sert uniquement à vous identifier. L’accès à l’agenda de vos proches est réservé aux comptes invités.</p>
@@ -1082,6 +1082,7 @@ function loginScreen() {
       <button class="btn small" data-copy>Copier le lien</button>
     </details>`);
   app.querySelector('[data-copy]').onclick = () => copy(link, 'Lien copié : collez-le dans Chrome ou Safari');
+  if (CONFIG.google.clientId) renderGoogleButton();
   for (const b of app.querySelectorAll('[data-gate]'))
     b.onclick = async () => {
       b.disabled = true;
@@ -1095,6 +1096,50 @@ function loginScreen() {
     };
 }
 
+/**
+ * Bouton officiel « Se connecter avec Google » (Google Identity Services).
+ * Il renvoie un jeton d'identité qu'on transmet à Firebase : aucune page de retour
+ * sur …firebaseapp.com, donc compatible avec Safari sur iPhone.
+ */
+async function renderGoogleButton() {
+  const box = document.getElementById('gsi-btn');
+  try {
+    await U.loadScript(G.GSI_SRC);
+    google.accounts.id.initialize({
+      client_id: CONFIG.google.clientId,
+      ux_mode: 'popup',
+      auto_select: false,
+      cancel_on_tap_outside: true,
+      callback: async (resp) => {
+        box.innerHTML = '<span class="muted small"><span class="spin"></span> Connexion…</span>';
+        try {
+          await C.signInWithGoogleIdToken(ctx, resp.credential);
+          location.reload();
+        } catch (e) {
+          fail(new Error(authError(e)));
+          renderGoogleButton();
+        }
+      },
+    });
+    box.innerHTML = '';
+    google.accounts.id.renderButton(box, {
+      type: 'standard',
+      theme: 'outline',
+      size: 'large',
+      text: 'continue_with',
+      shape: 'rectangular',
+      logo_alignment: 'left',
+      locale: 'fr',
+      width: Math.min(340, box.clientWidth || 300),
+    });
+  } catch (e) {
+    // Repli : ancienne méthode (fenêtre Firebase)
+    box.outerHTML = `<button class="btn" data-gate="google"><b class="g">G</b> Continuer avec Google</button>`;
+    const b = app.querySelector('[data-gate=google]');
+    b.onclick = () => C.signIn(ctx, 'google').then(() => location.reload(), (err) => fail(new Error(authError(err))));
+  }
+}
+
 function authError(e) {
   return (
     {
@@ -1104,6 +1149,7 @@ function authError(e) {
       'auth/popup-blocked': 'Le navigateur a bloqué la fenêtre de connexion : autorisez les pop-ups pour ce site.',
       'auth/web-storage-unsupported': 'Ce navigateur bloque la connexion (stockage désactivé ou navigation privée) : ouvrez le lien dans Chrome ou Safari.',
       'auth/internal-error': 'Connexion impossible dans ce navigateur : ouvrez le lien dans Chrome ou Safari, hors navigation privée.',
+      'auth/invalid-credential': 'Google a refusé la connexion : vérifiez que l’identifiant Google (config.js) appartient au même projet que Firebase.',
     }[e.code] || e.message
   );
 }
